@@ -1,48 +1,48 @@
-# Fixing audio with AppleALC
+#  AppleALC로 오디오 수정하기
 
-So to start, we'll assume you already have Lilu and AppleALC installed, if you're unsure if it's been loaded correctly you can run the following in terminal(This will also check if AppleHDA is loaded, as without this AppleALC has nothing to patch):
+시작하기 앞서, 이 가이드는 Lilu와 AppleALC가 설치되어 있는 상태로 가정하고 수정을 진행합니다, Lilu와 AppleALC가 설치되었는지 확실하지 않으시다면 터미널에서 다음을 실행할 수 있습니다. (AppleALC가 없다면 패치할 수 없기에, 다음 명령어는 AppleHDA가 설치되어있는지도 확인합니다.)
 
 ```sh
 kextstat | grep -E "AppleHDA|AppleALC|Lilu"
 ```
 
-If all 3 show up, you're good to go. And make sure VoodooHDA **is not present**. This will conflict with AppleALC otherwise.
+3개의 항목이 정상적으로 표시된다면 준비가 완료된 것입니다. 추가적으로 VoodooHDA가 존재하지 않는지도 확인하세요. 그렇지 않으면 ApplaALC와 충돌할 우려가 있습니다.
 
-If you're having issues, see the [Troubleshooting section](../universal/audio.md#troubleshooting)
+위의 과정과 관련해 문제가 있으시다면 [문제 해결 섹션](../universal/audio.md#troubleshooting)을 참고해주세요.
 
-## Finding your layout ID
+## layout ID 찾기
 
-So for this example, we'll assume your codec is ALC1220. To verify yours, you have a couple options:
+이 가이드는 ALC1220을 기준으로 작성되었습니다. 다음 몇가지 방법을 통해 코덱명을 찾을 수 있습니다.
 
-* Checking motherboard's spec page and manual
-* Check Device Manager in Windows
-* Run `cat` in terminal on Linux
+* 메인보드의 스펙을 통해 확인
+* Windows의 디바이스 매니저를 통해 확인 
+* Linux 에서  `cat` 명령어를 통해 확인
   * `cat /proc/asound/card0/codec#0 | less`
 
-Now with a codec, we'll want to cross reference it with AppleALC's supported codec list:
+다시 코덱으로 돌아와서, AppleALC 지원 코덱은 다음 링크에서 확인하실 수 있습니다:
 
-* [AppleALC Supported Codecs](https://github.com/acidanthera/AppleALC/wiki/Supported-codecs)
+* [AppleALC 지원 코덱](https://github.com/acidanthera/AppleALC/wiki/Supported-codecs)
 
-With the ALC1220, we get the following:
+ALC1220으로 다음을 얻을 수 있습니다:
 
 ```
 0x100003, layout 1, 2, 3, 5, 7, 11, 13, 15, 16, 21, 27, 28, 29, 34
 ```
 
-So from this it tells us 2 things:
+위의 내용으로 2가지 정보를 얻을 수 있습니다:
 
-* Which hardware revision is supported(`0x100003`), only relevant when multiple revisions are listed with different layouts
-* Various layout IDs supported by our codec(`layout 1, 2, 3, 5, 7, 11, 13, 15, 16, 21, 27, 28, 29, 34`)
+* 지원되는 하드웨어 버전(`0x100003`), 여러 개정판이 다른 레이아웃으로 나열되는 경우에만 관련됩니다
+* 해당 코덱으로 지원되는 layout ID(`layout 1, 2, 3, 5, 7, 11, 13, 15, 16, 21, 27, 28, 29, 34`)
 
-Now with a list of supported layout IDs,  we're ready to try some out
+이제 지원되는 layout ID를 통해 몇 가지를 수정할 준비가 되었습니다.
 
-**Note**: If your Audio Codec is ALC 3XXX this is likely false and just a rebranded controller, do your research and see what the actual controller is.
+**중요**: 만약 ALC 3XXX 코덱을 사용중이시라면 이는 아마 진짜 이름이 아닐 가능성이 높습니다. 검색을 통해 진짜 코덱명을 찾아서 사용해주세요:)
 
-* An example of this is the ALC3601, but when we load up Linux the real name is shown: ALC 671
+* 예를 들어 ALC3601의 경우 리눅스에서 로드 할 시 실제 이름인 ALC 671로 표시됩니다.
 
-## Testing your layout
+## Layout 테스트
 
-To test out our layout IDs, we're going to be using the boot-arg `alcid=xxx` where xxx is your layout. Remember that to try layout IDs **one at a time**. Do not add multiple IDs or alcid boot-args, if one doesn't work then try the next ID and etc
+layout IS를 테스트하기 위해,  `alcid=xxx` 의 xxx 부분에 자신의 레이아웃 아이디를 적용해 boot-args에 입력해보세요. 단, 한번에 한개의 레이아웃 아이디만 적용하세요 **one at a time**. 또한 한번에 여러개의 alcid를 boot-args에 적용하지 마세요
 
 ```
 config.plist
@@ -54,15 +54,15 @@ config.plist
 
 ## Making Layout ID more permanent
 
-Once you've found a Layout ID that works with your hack, we can create a more permanent solution for closer to how real macs set their Layout ID.
+정상적으로 동작되는 레이아웃 아이디를 찾으셨다면, 이제 실제 mac에서 레이아웃 아이디를 설정하는 방법과 더 가까운 영구적 솔루션을 만들 수 있습니다.
 
 With AppleALC, there's a priority hierarchy with which properties are prioritized:
 
-1. `alcid=xxx` boot-arg, useful for debugging and overrides all other values
-2. `alc-layout-id` in DeviceProperties, **should only be used on Apple hardware**
-3. `layout-id` in DeviceProperties, **should be used on both Apple and non-Apple hardware**
+1. `alcid=xxx` boot-arg, 디버깅과 다른 값을 모두 재정의하는데 유리합니다.
+2. `alc-layout-id` in DeviceProperties, **Apple Hardware에 사용된 적이 있어야 합니다**
+3. `layout-id` in DeviceProperties, **Apple 과 non-Apple 모두에 사용된 적 있어야 합니다**
 
-To start, we'll need to find out where our Audio controller is located on the PCI map. For this, we'll be using a handy tool called [gfxutil](https://github.com/acidanthera/gfxutil/releases) then with the macOS terminal:
+시작하기 위해, 오디오 컨트롤러 장비가 pci map 어디에 위치하고 있는지 알기 위해 [gfxutil](https://github.com/acidanthera/gfxutil/releases) 과 macOS terminal을 사용합니다:
 
 ```sh
 path/to/gfxutil -f HDEF
